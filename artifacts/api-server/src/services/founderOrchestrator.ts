@@ -114,7 +114,7 @@ export async function runFounderPhase(runId: string): Promise<void> {
     .map(m => `[${(m.agentKey || "unknown").toUpperCase()} - ${m.messageType}]: ${m.content}`)
     .join("\n\n");
 
-  const convergenceResult = await chatCompletion("openai/gpt-4o", [
+  const convergenceResult = await chatCompletion("openai/gpt-5.4", [
     {
       role: "system",
       content: `You are a neutral facilitator. Based on the founder debate below, determine the winning startup idea that has the most support. Respond ONLY in this exact JSON format, no other text:\n{"companyName":"...","companyTagline":"...","selectedIdeaTitle":"...","selectedIdeaSummary":"...","winnerAgentKey":"tech|market|skeptic|finance"}`,

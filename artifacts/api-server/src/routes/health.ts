@@ -23,7 +23,7 @@ router.get("/healthz", async (_req, res) => {
 });
 
 router.post("/health/openrouter", async (_req, res) => {
-  const result = await chatCompletion("openai/gpt-4o-mini", [
+  const result = await chatCompletion("openai/gpt-5.4", [
     { role: "user", content: "Return only the word OK" },
   ], 10);
 
