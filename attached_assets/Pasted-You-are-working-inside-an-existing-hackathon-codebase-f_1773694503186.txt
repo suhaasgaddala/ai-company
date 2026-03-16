@@ -1,0 +1,610 @@
+You are working inside an existing hackathon codebase for an app called "AI Company".
+
+Your job is to COMPLETE THE FOUNDER LOOP end-to-end in the EXISTING codebase, using the current architecture, without breaking the UI, without reintroducing any mock data, and without changing the product concept.
+
+You must behave like a senior full-stack engineer. Do not give me a high-level explanation. Inspect the repo, understand the existing structure, then implement the required code directly.
+
+IMPORTANT:
+- Do not add fake data
+- Do not add placeholder logic unless absolutely necessary
+- Do not create a parallel implementation if an existing service/helper already exists
+- Reuse the current OpenRouter helper, agent configs, database services, and API patterns
+- Preserve the current frontend behavior and streaming/polling UX
+- Make the founder phase machine-safe for the worker phase
+- Keep the system deterministic where possible
+- Do not break any existing endpoint contracts unless required; if you change a contract, update all callers
+- Keep everything TypeScript-safe
+- Do not leave TODOs
+- Do not ask me clarifying questions unless something is truly impossible; inspect the code and make the best implementation
+
+==================================================
+CURRENT PRODUCT CONTEXT
+==================================================
+
+This app is a hackathon MVP called "AI Company".
+
+The UX is:
+
+1. User optionally enters keywords
+2. User clicks "Start Founder Debate"
+3. Four AI founders participate:
+   - Tech
+   - Market
+   - Skeptic
+   - Finance
+4. They each propose one startup idea
+5. They each critique the other founders' ideas
+6. They each revise THEIR OWN proposal exactly once based on the critiques they received
+7. They then vote on the revised proposals
+8. Backend deterministically selects the winner
+9. Roles are assigned
+10. A canonical company brief is created for the worker phase
+11. Transcript and company summary update live in the UI
+
+This is NOT an open-ended chat sim.
+This must be a structured, staged orchestration pipeline.
+
+==================================================
+CURRENT STATE OF THE CODEBASE
+==================================================
+
+The app is already built and running.
+
+Already exists:
+- polished frontend dashboard
+- Express + TypeScript backend
+- database tables:
+  - runs
+  - transcript_messages
+  - artifacts
+- OpenRouter integration helper already wired
+- founder route already exists and likely starts async orchestration
+- frontend already polls and renders transcript/company summary
+- mock data has already been removed
+- founderOrchestrator.ts exists but must be fully correct and productionized
+- prompts/founders.ts exists but must be updated if needed
+
+Likely relevant files:
+- artifacts/api-server/src/services/founderOrchestrator.ts
+- prompts/founders.ts
+- any OpenRouter helper / LLM client
+- run service / artifact service / transcript service
+- founder route handler
+- frontend hook that polls founder progress
+- agent profile/config files
+
+You must inspect the repo and use the actual filenames and utilities that exist.
+
+==================================================
+PRIMARY GOAL
+==================================================
+
+Implement the founder loop so that it produces a fully structured founder result artifact that downstream worker agents can consume without parsing transcript text.
+
+The founder loop must use this exact stage sequence:
+
+Stage A: Initial proposals
+Stage B: Cross-critiques
+Stage C: Single revision pass
+Stage D: Voting on revised proposals
+Stage E: Deterministic backend winner selection
+Stage F: Canonical company brief synthesis
+
+==================================================
+NON-NEGOTIABLE REQUIREMENTS
+==================================================
+
+1. STRUCTURED OUTPUTS, NOT FREEFORM BLOBS
+Every LLM stage must return structured JSON, not prose that is later regex-parsed.
+
+2. TRANSCRIPT IS PRESENTATION, NOT SOURCE OF TRUTH
+Transcript messages should be derived from structured artifacts, not vice versa.
+
+3. REVISED PROPOSALS ARE REQUIRED
+After critiques, each founder must revise their own idea exactly once.
+
+4. REVISIONS MUST KEEP THE SAME CORE IDEA
+A founder may improve ICP, wedge, pricing, messaging, MVP, or name, but may not abandon the original idea and switch to a totally different company.
+
+5. VOTING MUST HAPPEN ON REVISED PROPOSALS
+Founders vote on the revised proposal set, not the original one.
+
+6. WINNER SELECTION MUST BE DETERMINISTIC
+Do not let a fuzzy synthesis model decide the winner.
+Use backend logic.
+
+7. THE FINAL HANDOFF OBJECT MUST BE STORED
+Save a founder_result artifact containing:
+- proposals
+- critiques
+- revisedProposals
+- votes
+- selectedProposal
+- roles
+- canonicalBrief
+
+8. DO NOT BREAK THE EXISTING UI
+Preserve live transcript updates and company summary behavior.
+
+9. DO NOT REINTRODUCE NEXAHEALTH OR ANY MOCK COMPANY
+No seed/demo company.
+No fallback fake transcript unless the current architecture absolutely requires a guarded fallback.
+
+10. CODE MUST BE CLEAN
+No dead code.
+No duplicate orchestrators.
+No leftover TODO markers.
+No unhandled promises.
+No compile errors.
+
+==================================================
+DATA CONTRACTS TO IMPLEMENT
+==================================================
+
+Use types/interfaces like these. Adapt exact names if the repo already has similar types, but preserve the shape.
+
+FounderId:
+- "tech"
+- "market"
+- "skeptic"
+- "finance"
+
+Initial proposal type:
+{
+  id: string;
+  founder: FounderId;
+  companyName: string;
+  tagline: string;
+  customer: string;
+  problem: string;
+  solution: string;
+  whyNow: string;
+  businessModel: string;
+  mvp: string[];
+}
+
+Critique type:
+{
+  founder: FounderId;
+  targetProposalId: string;
+  strengths: string[];
+  weaknesses: string[];
+  verdict: "strong" | "medium" | "weak";
+  score: number; // 1-10
+}
+
+Revised proposal type:
+{
+  id: string;
+  originalProposalId: string;
+  founder: FounderId;
+  companyName: string;
+  tagline: string;
+  customer: string;
+  problem: string;
+  solution: string;
+  whyNow: string;
+  businessModel: string;
+  mvp: string[];
+  revisionSummary: string;
+  changesMade: string[];
+}
+
+Vote type:
+{
+  founder: FounderId;
+  votedProposalId: string;
+  rationale: string;
+}
+
+Roles type:
+{
+  CEO: FounderId;
+  CTO: FounderId;
+  CFO: FounderId;
+  COO: FounderId;
+  CMO?: FounderId;
+}
+
+Canonical brief type:
+{
+  companyName: string;
+  tagline: string;
+  customer: string;
+  problem: string;
+  solution: string;
+  whyNow: string;
+  businessModel: string;
+  mvp: string[];
+  launchWedge: string;
+  brandTone: string;
+}
+
+Founder result type:
+{
+  proposals: Proposal[];
+  critiques: Critique[];
+  revisedProposals: RevisedProposal[];
+  votes: Vote[];
+  selectedProposal: RevisedProposal;
+  roles: Roles;
+  canonicalBrief: CanonicalBrief;
+}
+
+==================================================
+ARTIFACTS TO PERSIST
+==================================================
+
+Store these artifacts in the existing artifacts system / table:
+
+- founder_proposals.json
+- founder_critiques.json
+- founder_revised_proposals.json
+- founder_votes.json
+- founder_result.json
+
+If the existing artifact service uses different naming or metadata fields, adapt to that, but keep these logical artifacts available.
+
+The final worker phase should only need to read founder_result.json.
+
+==================================================
+TRANSCRIPT PHASES
+==================================================
+
+Transcript should visibly show these phases in order:
+
+1. proposal
+2. critique
+3. revision
+4. vote
+5. decision
+
+Each stage should append transcript rows as the founder loop progresses.
+
+Examples of transcript semantics:
+- proposal: founder proposes startup
+- critique: founder attacks another proposal from their role perspective
+- revision: founder explains what they improved after feedback
+- vote: founder votes for a revised proposal and explains why
+- decision: system announces selected company and role assignments
+
+Use the existing transcript table/service. Do not reinvent storage.
+
+==================================================
+FOUNDER PERSONAS
+==================================================
+
+Use these exact role priorities.
+
+Tech founder:
+- technical defensibility
+- AI-native advantage
+- feasibility of MVP
+- long-term moat
+
+Market founder:
+- pain intensity
+- clear ICP
+- fast adoption
+- distribution wedge
+
+Skeptic founder:
+- kill vague assumptions
+- detect fake demand
+- surface execution risk
+- challenge hype
+
+Finance founder:
+- pricing power
+- gross margins
+- CAC realism
+- capital efficiency
+
+These personas should influence proposal, critique, revision, and voting.
+
+==================================================
+MODEL ROUTING
+==================================================
+
+Use these exact models through OpenRouter unless the repo architecture makes the names live in a central config file, in which case update that central config cleanly.
+
+Exact founder model mapping:
+- tech: openai/gpt-5.4
+- market: anthropic/claude-sonnet-4.6
+- finance: google/gemini-3.1-pro-preview
+- skeptic: x-ai/grok-4.20-beta
+
+Canonical brief synthesis model:
+- openai/gpt-5.4
+
+Do not silently substitute different models unless one of these exact model IDs is unavailable in the existing integration layer and the code absolutely requires a temporary compatibility shim. If that happens, keep the mapping isolated and obvious.
+
+==================================================
+PROMPT REQUIREMENTS
+==================================================
+
+Implement prompts in prompts/founders.ts or whatever founder prompt file exists.
+
+Use separate prompt builders for:
+- proposal
+- critique
+- revision
+- vote
+- canonical brief synthesis
+
+All prompts must explicitly say:
+- return JSON only
+- be concise and specific
+- avoid generic "AI assistant for everything" ideas
+- optimize for venture-scale startup quality
+- think from the founder's domain perspective
+
+REVISION PROMPT REQUIREMENTS:
+This is critical.
+Revision prompt must instruct the founder to:
+- revise their own proposal exactly once
+- preserve the same core startup concept
+- improve weaknesses identified by critiques
+- not submit a completely unrelated idea
+- include revisionSummary and changesMade
+
+==================================================
+STRUCTURED OUTPUT / SCHEMA REQUIREMENTS
+==================================================
+
+The founder loop must use structured model outputs.
+
+If the existing OpenRouter helper supports structured JSON schema output, use it.
+If it currently only does raw completions, improve it carefully.
+
+Preferred behavior:
+- strict JSON schema output when available
+- one retry on malformed JSON
+- if retry fails, mark run failed with a clear error and save enough context for debugging
+
+Do NOT rely on fragile regex extraction from markdown code fences if the helper can be improved safely.
+
+==================================================
+ORCHESTRATOR REQUIREMENTS
+==================================================
+
+Implement founderOrchestrator.ts as a staged pipeline with functions roughly like:
+
+- runFounderOrchestrator(runId, keywords?)
+- generateProposals(runId, keywords?)
+- generateCritiques(runId, proposals)
+- reviseProposals(runId, proposals, critiques)
+- generateVotes(runId, revisedProposals, critiques)
+- selectWinner(revisedProposals, critiques, votes)
+- assignRoles(selectedProposal)
+- synthesizeCanonicalBrief(selectedProposal, critiques)
+- appendTranscript helpers / formatting helpers
+- persist artifact helpers
+
+Do not just cram all logic into one giant unreadable function.
+But also do not over-abstract with unnecessary factories/interfaces for a hackathon codebase.
+
+The code should be easy to understand and modify.
+
+==================================================
+STAGE-BY-STAGE LOGIC
+==================================================
+
+STAGE A: PROPOSALS
+- Each founder creates exactly one startup proposal
+- One proposal per founder only
+- Proposal must include all structured fields
+- Append transcript entry after each proposal
+- Save founder_proposals artifact
+
+STAGE B: CRITIQUES
+- Each founder critiques the other 3 proposals
+- That means 12 critiques total
+- Each critique must include:
+  - strengths
+  - weaknesses
+  - verdict
+  - score
+- Append transcript entries as critiques occur
+- Save founder_critiques artifact
+
+STAGE C: REVISIONS
+- Each founder receives all critiques targeting THEIR proposal
+- They revise their proposal exactly once
+- Revised proposal must preserve the same core idea
+- Revised proposal must include:
+  - revisionSummary
+  - changesMade
+- Append transcript entries after each revision
+- Save founder_revised_proposals artifact
+
+STAGE D: VOTES
+- Each founder votes on one revised proposal that is NOT their own
+- Each vote must include rationale
+- Append transcript entry
+- Save founder_votes artifact
+
+STAGE E: WINNER SELECTION
+Use deterministic backend logic.
+
+Selection logic:
+1. Count votes for each revised proposal
+2. Highest vote count wins
+3. If tie, use aggregate critique score from critiques targeting that proposal’s originalProposalId
+4. If still tied, use stable deterministic fallback:
+   - market preference vote
+   - then finance preference vote
+   - then lexical sort by proposal id as a final deterministic tie-breaker
+
+Do NOT use a final "AI picks winner" pass.
+
+STAGE F: CANONICAL BRIEF SYNTHESIS
+- Use the selected revised proposal
+- Also pass in the critiques that originally targeted that proposal lineage
+- Generate a worker-ready canonical brief
+- Save founder_result artifact with everything
+- Update run/company summary state so the frontend shows:
+  - company name
+  - tagline
+  - summary / short description
+- Mark founder phase complete
+
+==================================================
+ROLE ASSIGNMENT LOGIC
+==================================================
+
+Keep role assignment deterministic and simple.
+
+Rules:
+- winner founder becomes CEO
+- tech founder becomes CTO
+- finance founder becomes CFO
+- skeptic founder becomes COO
+- market founder becomes CMO
+
+Even if market founder wins CEO, that is fine.
+If needed, allow CEO and CMO to both be "market" for now rather than overcomplicating deduping.
+Hackathon clarity matters more than org-chart purity.
+
+==================================================
+IMPORTANT IMPLEMENTATION DETAILS
+==================================================
+
+1. REVISED PROPOSALS MUST TRACK LINEAGE
+Each revised proposal must have:
+- id
+- originalProposalId
+
+Votes target revisedProposal.id
+Critiques target originalProposalId
+
+2. WORKER HANDOFF MUST BE CLEAN
+The worker phase should consume founder_result.json, not raw transcript.
+
+3. KEEP STREAMING FEEL
+Even if orchestration is sequential under the hood, transcript updates should appear as phases progress.
+
+4. ASYNC ROUTE SHOULD REMAIN NON-BLOCKING
+If the current /founders/start route fires the orchestrator async and returns immediately, preserve that pattern.
+
+5. IDEMPOTENCY
+If a run is already in progress or already completed, guard against duplicate start behavior using existing conventions.
+
+6. ERROR HANDLING
+If any stage fails:
+- save an error artifact or run error state if the repo supports it
+- append a system transcript message if appropriate
+- mark the run failed cleanly
+- do not leave the run hanging forever in a running state
+
+7. RETRIES
+For model JSON parsing:
+- allow one retry max
+- on retry, explicitly tell the model to return valid JSON only
+- do not create infinite loops
+
+8. NO PARSING FROM TRANSCRIPT
+Never reconstruct structured objects from transcript content.
+
+==================================================
+FRONTEND / API COMPATIBILITY
+==================================================
+
+Inspect the existing frontend polling hook and API response shape.
+
+Keep the frontend working with minimal changes.
+
+If necessary:
+- update types
+- update company summary shape
+- update artifact tabs
+- update polling completion detection
+
+But do not redesign the frontend.
+
+The visible experience should remain:
+- click button
+- founders think
+- transcript streams
+- final company appears
+- artifact tabs remain usable
+
+==================================================
+WHAT TO SAVE IN THE FINAL RESULT
+==================================================
+
+The final founder_result artifact must contain:
+
+{
+  "proposals": [...],
+  "critiques": [...],
+  "revisedProposals": [...],
+  "votes": [...],
+  "selectedProposal": {...},
+  "roles": {...},
+  "canonicalBrief": {...}
+}
+
+Also ensure the run/company summary has enough top-level summary info for the existing UI, at least:
+- companyName
+- tagline
+- summary
+
+==================================================
+QUALITY BAR
+==================================================
+
+The founder loop should feel intelligent, not random.
+
+The founder ideas should not all collapse into generic AI wrappers.
+Use the persona prompts to force diversity and quality.
+
+Critiques should feel role-specific:
+- Tech critiques moat/feasibility
+- Market critiques adoption/ICP/distribution
+- Skeptic critiques assumptions/risk/hype
+- Finance critiques unit economics/pricing/CAC
+
+Revisions should visibly improve the ideas.
+Votes should sound like executive judgment, not shallow restatement.
+
+==================================================
+ACCEPTANCE TESTS
+==================================================
+
+When done, verify all of the following:
+
+1. Starting founder debate with keywords creates a run and begins transcript streaming
+2. Four structured proposals are generated
+3. Twelve critiques are generated
+4. Four revised proposals are generated
+5. Four votes are generated
+6. Winner is selected deterministically
+7. Roles are assigned
+8. founder_result artifact exists
+9. canonicalBrief exists and is coherent
+10. frontend shows final company summary correctly
+11. no mock data appears anywhere
+12. no TypeScript errors
+13. no unhandled runtime errors
+14. duplicate starts are guarded
+15. the run is marked completed when done
+16. if a stage errors, run is marked failed instead of hanging
+
+==================================================
+DELIVERABLE EXPECTATIONS
+==================================================
+
+Do the work directly in the codebase.
+
+At the end:
+- show exactly which files you changed
+- summarize the logic you implemented
+- mention any assumptions you had to make
+- mention any remaining edge cases if any
+- run the relevant tests or manual verification steps available in the repo
+
+Do not just describe what should be done.
+Actually implement it.
+
+Now inspect the existing repo and complete this founder loop.
