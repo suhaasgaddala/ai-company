@@ -1,0 +1,352 @@
+Build a hackathon MVP app called “AI Company”.
+
+The app idea:
+A user clicks “Start Company”. Four AI co-CEOs (Tech, Market, Skeptic, Finance) debate startup ideas, converge on one company, and then worker agents later generate a product spec, GTM plan, finance memo, and a simple landing page. For now, only build the full MVP scaffold and app shell. Do NOT implement the real founder loop or worker loop yet. Just create the project structure, backend, frontend, DB wiring, OpenRouter wiring, placeholder endpoints, and polished UI shell.
+
+IMPORTANT:
+This is a hackathon MVP. Keep it simple.
+Do NOT add:
+- ORM
+- migrations
+- repository pattern
+- over-engineered validation
+- auth
+- complicated abstractions
+- unnecessary libraries
+
+Optimize for:
+- speed
+- clean enough structure
+- easy to extend in the next 2 hours
+- stuff actually working inside Replit
+
+TECH STACK
+Use:
+- React + Vite + TypeScript frontend
+- Express + TypeScript backend
+- Tailwind for styling
+- Replit built-in PostgreSQL database
+- plain SQL queries using pg
+- OpenRouter for model calls
+- one repo/app only
+
+PROJECT GOAL FOR THIS PHASE
+I want a working app that has:
+1. a polished dashboard UI
+2. a working backend
+3. a working DB connection
+4. a working OpenRouter test endpoint
+5. placeholder routes for founder loop and worker loop
+6. basic database tables for runs, transcript messages, and artifacts
+7. config files for agents and models
+8. seeded/mock transcript data so the UI looks alive immediately
+
+DO NOT build the actual AI logic yet.
+DO build everything needed so my friend can implement founder loop and I can implement worker loop immediately after.
+
+APP STRUCTURE
+Keep it simple and practical. Something like:
+
+/client
+  /src
+    /components
+    /pages
+    /lib
+    /types
+/server
+  /src
+    /config
+    /routes
+    /services
+    /prompts
+    /db
+/shared
+/generated
+
+If you need to adjust slightly for Vite/Express, that’s fine.
+
+DATABASE
+Use Replit built-in PostgreSQL with plain pg.
+
+Create only the minimum tables needed:
+
+1. runs
+- id (uuid or text primary key)
+- created_at
+- updated_at
+- status
+- phase
+- user_keywords
+- company_name
+- company_tagline
+- selected_idea_title
+- selected_idea_summary
+- winner_agent_key
+- state_json
+
+2. transcript_messages
+- id
+- run_id
+- created_at
+- phase
+- agent_key
+- role_type
+- message_type
+- content
+- sort_order
+
+3. artifacts
+- id
+- run_id
+- created_at
+- artifact_type
+- title
+- content_text
+- storage_path
+
+Keep schema setup simple.
+If easiest, create a startup SQL file or initialization helper.
+Do not add migrations tooling unless Replit forces it.
+
+BACKEND
+Create a simple Express server with these routes:
+
+1. GET /api/health
+Returns:
+- ok true/false
+- timestamp
+- database status
+
+2. POST /api/health/openrouter
+Calls OpenRouter with a tiny prompt like “Return OK”
+Returns:
+- success
+- model
+- text output
+- error if any
+
+3. POST /api/runs
+Creates a new run
+Input:
+{
+  "userKeywords": "optional text"
+}
+Should insert a run row and maybe seed a couple initial system transcript messages.
+
+4. GET /api/runs/:runId
+Returns run data
+
+5. GET /api/runs/:runId/transcript
+Returns transcript messages
+
+6. GET /api/runs/:runId/artifacts
+Returns artifacts
+
+7. POST /api/runs/:runId/founders/start
+Placeholder endpoint only
+Should:
+- confirm run exists
+- append a few fake founder transcript messages
+- return a TODO response
+This is where founder loop will go later.
+
+8. POST /api/runs/:runId/workers/start
+Placeholder endpoint only
+Should:
+- confirm run exists
+- append a few fake worker transcript messages
+- return a TODO response
+This is where worker loop will go later.
+
+9. GET /api/runs/:runId/preview
+Placeholder endpoint for future landing page preview
+
+DATABASE / SERVER CODE
+Create simple files like:
+- server/src/db.ts
+- server/src/config/agents.ts
+- server/src/config/models.ts
+- server/src/config/env.ts
+- server/src/lib/openrouter.ts
+- server/src/routes/*.ts
+- server/src/services/runService.ts
+- server/src/services/transcriptService.ts
+- server/src/services/artifactService.ts
+
+No huge abstractions.
+Just keep the code readable and easy to edit.
+
+OPENROUTER
+Set up OpenRouter with env vars:
+- OPENROUTER_API_KEY
+- OPENROUTER_BASE_URL (default https://openrouter.ai/api/v1)
+- OPENROUTER_SITE_URL
+- OPENROUTER_APP_NAME
+
+Create one helper in server/src/lib/openrouter.ts that can send a simple chat completion request.
+
+Also create a models config file with a few example models:
+- openai
+- anthropic
+- google
+
+And create an agents config file with:
+Founders:
+- tech
+- market
+- skeptic
+- finance
+
+Workers:
+- builder
+- gtm
+- finance_ops
+
+Each agent should have:
+- key
+- displayName
+- roleType
+- defaultModel
+- color
+- promptKey
+
+PROMPTS
+Create placeholder prompt files:
+- server/src/prompts/founders.ts
+- server/src/prompts/workers.ts
+
+Keep them short but distinct.
+Do NOT spend time perfecting prompts yet.
+
+FRONTEND UI
+Build a polished dark-mode dashboard shell.
+
+Main page should include:
+
+1. Header
+- app title: AI Company
+- subtitle
+- Start Company button
+
+2. Input box
+- optional keywords/theme input
+- example chips like healthcare, real estate, b2b saas, consumer
+
+3. Founder cards
+Show 4 founder agents:
+- Tech
+- Market
+- Skeptic
+- Finance
+
+Each card should display:
+- name
+- role
+- assigned model
+- current status
+- short description
+
+4. Transcript panel
+Scrollable
+Color-coded by agent
+Should render seeded/fake messages nicely
+
+5. Company summary panel
+Shows:
+- placeholder company name
+- summary
+- selected idea
+- role assignments
+- current phase/status
+
+6. Artifact tabs
+Tabs for:
+- Product
+- GTM
+- Finance
+- Preview
+
+For now, placeholder content is fine.
+
+7. Preview pane
+Placeholder box or iframe area for future generated landing page preview
+
+UI should feel like:
+- premium
+- dark
+- AI control room
+- not generic admin dashboard
+
+SEEDED MOCK DATA
+Important:
+The UI should not look empty.
+Seed a fake run or fake transcript messages so the app looks alive immediately.
+
+Include a few realistic-looking transcript messages from:
+- Tech
+- Market
+- Skeptic
+- Finance
+- System
+
+Keep it light.
+
+PLACEHOLDER FUNCTIONS / TODos
+Set up obvious placeholder files/functions for the next phases.
+
+Examples:
+- runFounderPhase(runId)
+- runWorkerPhase(runId)
+- generateFounderIdeas(runId)
+- critiqueIdeas(runId)
+- voteOnIdeas(runId)
+- runBuilderWorker(runId)
+- runGtmWorker(runId)
+- runFinanceWorker(runId)
+- savePreviewBundle(runId, files)
+
+Leave clear TODO comments where the real implementation should go.
+
+IMPORTANT FOR TEAM SPLIT
+Make the codebase easy for 2 people to split:
+
+Founder loop person should mainly work in:
+- server/src/routes/founders route
+- server/src/services/founderService.ts or founderOrchestrator.ts
+- server/src/prompts/founders.ts
+
+Worker loop person should mainly work in:
+- server/src/routes/workers route
+- server/src/services/workerService.ts or workerOrchestrator.ts
+- server/src/prompts/workers.ts
+- preview generation helpers
+
+README
+Write a short README that says:
+- what the app is
+- how to run it in Replit
+- required env vars
+- what phase one includes
+- where founder loop goes
+- where worker loop goes
+
+ACCEPTANCE CRITERIA
+Do not stop until:
+1. frontend renders a polished dashboard shell
+2. backend runs
+3. DB connection works
+4. /api/health works
+5. /api/health/openrouter works when env key is set
+6. /api/runs creates a run
+7. transcript/artifacts endpoints work
+8. founder/worker placeholder endpoints exist
+9. agent + model config files exist
+10. app is ready for immediate parallel development
+
+At the end, give me:
+1. a summary of what you built
+2. the file tree
+3. env vars I need to set
+4. where founder loop should be implemented
+5. where worker loop should be implemented
+6. any manual steps left in Replit

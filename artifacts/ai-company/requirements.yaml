@@ -1,0 +1,12 @@
+packages:
+  "framer-motion": "For premium animations, layout transitions, and glowing pulse effects"
+  "clsx": "For conditional class name merging"
+  "tailwind-merge": "For merging tailwind classes without conflicts"
+  "date-fns": "For formatting transcript timestamps"
+images:
+  - path: "artifacts/ai-company/public/images/cyber-grid.png"
+    description: "A dark futuristic cyber grid background with subtle cyan and deep purple volumetric lighting, deep blacks, high tech mission control interface style, abstract, 8k"
+    aspect_ratio: "16:9"
+notes:
+  - "The API endpoints are inferred from the OpenAPI spec and imported from @workspace/api-client-react"
+  - "A robust mock simulation is built-in to ensure the dashboard looks alive and impressive for the hackathon MVP, even before the backend is fully wired."

@@ -1,4 +1,5 @@
 import app from "./app";
+import { seedDemoData } from "./services/seedService";
 
 const rawPort = process.env["PORT"];
 
@@ -13,6 +14,10 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+seedDemoData()
+  .then(() => console.log("Demo data seeded"))
+  .catch((err) => console.error("Seed error (non-fatal):", err.message));
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

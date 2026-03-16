@@ -1,22 +1,22 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Company API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: runs
+    description: Company run operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +24,324 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /health/openrouter:
+    post:
+      operationId: testOpenRouter
+      tags: [health]
+      summary: Test OpenRouter connection
+      responses:
+        "200":
+          description: OpenRouter test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenRouterTestResult"
+  /runs:
+    post:
+      operationId: createRun
+      tags: [runs]
+      summary: Create a new company run
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRunInput"
+      responses:
+        "201":
+          description: Run created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+  /runs/{runId}:
+    get:
+      operationId: getRun
+      tags: [runs]
+      summary: Get run details
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+  /runs/{runId}/transcript:
+    get:
+      operationId: getTranscript
+      tags: [runs]
+      summary: Get transcript messages for a run
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transcript messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TranscriptMessage"
+  /runs/{runId}/artifacts:
+    get:
+      operationId: getArtifacts
+      tags: [runs]
+      summary: Get artifacts for a run
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Artifacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Artifact"
+  /runs/{runId}/founders/start:
+    post:
+      operationId: startFounders
+      tags: [runs]
+      summary: Start founder debate phase (placeholder)
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Founder phase started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhaseResponse"
+  /runs/{runId}/workers/start:
+    post:
+      operationId: startWorkers
+      tags: [runs]
+      summary: Start worker phase (placeholder)
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Worker phase started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhaseResponse"
+  /runs/{runId}/preview:
+    get:
+      operationId: getPreview
+      tags: [runs]
+      summary: Get landing page preview (placeholder)
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Preview data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewResponse"
+  /config/agents:
+    get:
+      operationId: getAgentConfig
+      tags: [health]
+      summary: Get agent configuration
+      responses:
+        "200":
+          description: Agent config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentConfig"
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
+        ok:
+          type: boolean
+        timestamp:
+          type: string
+        database:
+          type: string
+      required:
+        - ok
+        - timestamp
+        - database
+    OpenRouterTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        model:
+          type: string
+        text:
+          type: string
+        error:
+          type: string
+      required:
+        - success
+    CreateRunInput:
+      type: object
+      properties:
+        userKeywords:
+          type: string
+    Run:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
         status:
+          type: string
+        phase:
+          type: string
+        userKeywords:
+          type: string
+        companyName:
+          type: string
+        companyTagline:
+          type: string
+        selectedIdeaTitle:
+          type: string
+        selectedIdeaSummary:
+          type: string
+        winnerAgentKey:
+          type: string
+      required:
+        - id
+        - status
+        - phase
+    TranscriptMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        createdAt:
+          type: string
+        phase:
+          type: string
+        agentKey:
+          type: string
+        roleType:
+          type: string
+        messageType:
+          type: string
+        content:
+          type: string
+        sortOrder:
+          type: integer
+      required:
+        - id
+        - runId
+        - content
+        - sortOrder
+    Artifact:
+      type: object
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        createdAt:
+          type: string
+        artifactType:
+          type: string
+        title:
+          type: string
+        contentText:
+          type: string
+        storagePath:
+          type: string
+      required:
+        - id
+        - runId
+        - artifactType
+    PhaseResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        runId:
           type: string
       required:
         - status
-
+        - message
+    PreviewResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        html:
+          type: string
+      required:
+        - status
+    AgentConfig:
+      type: object
+      properties:
+        founders:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentInfo"
+        workers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentInfo"
+      required:
+        - founders
+        - workers
+    AgentInfo:
+      type: object
+      properties:
+        key:
+          type: string
+        displayName:
+          type: string
+        roleType:
+          type: string
+        defaultModel:
+          type: string
+        color:
+          type: string
+        description:
+          type: string
+        avatar:
+          type: string
+      required:
+        - key
+        - displayName
+        - roleType
+        - color
