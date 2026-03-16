@@ -2,7 +2,7 @@
 
 ## Overview
 
-AI Company is a hackathon MVP where users click "Start Company" and four AI co-CEOs (Tech, Market, Skeptic, Finance) debate startup ideas, converge on one company, then worker agents generate deliverables (product spec, GTM plan, finance memo, landing page).
+AI Company is a hackathon MVP where users click "Start Company" and four AI co-CEOs (Tech, Market, Skeptic, Finance) debate startup ideas via real OpenRouter LLM calls, converge on one company, then worker agents generate deliverables (product spec, GTM plan, finance memo, landing page).
 
 ## Stack
 
@@ -25,8 +25,8 @@ artifacts/
 ├── ai-company/           # React + Vite frontend (dark mode dashboard)
 │   └── src/
 │       ├── components/    # AgentCard, TranscriptPanel, CompanySummary, ArtifactsPanel, etc.
-│       ├── data/          # Mock data for simulation
-│       ├── hooks/         # use-simulation hook
+│       ├── data/          # agents.ts - agent display profiles (colors, names, models)
+│       ├── hooks/         # use-simulation.ts - real API polling hook
 │       └── pages/         # Dashboard page
 ├── api-server/            # Express API server
 │   └── src/
@@ -35,13 +35,23 @@ artifacts/
 │       ├── prompts/       # founders.ts, workers.ts
 │       ├── routes/        # health.ts, runs.ts, config.ts
 │       └── services/      # runService, transcriptService, artifactService,
-│                          # founderOrchestrator, workerOrchestrator, seedService
+│                          # founderOrchestrator (REAL LLM), workerOrchestrator, seedService (empty)
 lib/
 ├── api-spec/              # OpenAPI spec + Orval codegen config
 ├── api-client-react/      # Generated React Query hooks
 ├── api-zod/               # Generated Zod schemas
 └── db/                    # Drizzle ORM schema (runs, transcript_messages, artifacts)
 ```
+
+## Founder Debate Flow (Real LLM)
+
+1. Frontend: POST /api/runs → POST /api/runs/:id/founders/start (fire-and-forget)
+2. Backend runs founderOrchestrator asynchronously:
+   - Phase 1 (Ideation): Each of 4 founders calls OpenRouter with their persona prompt + user keywords
+   - Phase 2 (Critique): Each founder critiques all ideas
+   - Phase 3 (Convergence): GPT-4o synthesizes consensus → updates run with companyName/tagline
+3. Frontend polls GET /api/runs/:id and GET /api/runs/:id/transcript every 2s for live updates
+4. Idempotency: /founders/start rejects if run already running/completed (409)
 
 ## Database Tables
 
@@ -57,7 +67,7 @@ lib/
 - `GET /api/runs/:runId` - Get run details
 - `GET /api/runs/:runId/transcript` - Get transcript messages
 - `GET /api/runs/:runId/artifacts` - Get artifacts
-- `POST /api/runs/:runId/founders/start` - Start founder debate (placeholder)
+- `POST /api/runs/:runId/founders/start` - Start founder debate (real LLM calls)
 - `POST /api/runs/:runId/workers/start` - Start worker phase (placeholder)
 - `GET /api/runs/:runId/preview` - Get landing page preview (placeholder)
 - `GET /api/config/agents` - Get agent configuration
@@ -69,18 +79,6 @@ lib/
 - `OPENROUTER_BASE_URL` - Optional, defaults to https://openrouter.ai/api/v1
 - `OPENROUTER_SITE_URL` - Optional
 - `OPENROUTER_APP_NAME` - Optional, defaults to "AI Company"
-
-## Team Split: Where to Implement
-
-### Founder Loop Person
-- `artifacts/api-server/src/services/founderOrchestrator.ts` - Main orchestrator
-- `artifacts/api-server/src/prompts/founders.ts` - Founder prompts
-- `artifacts/api-server/src/routes/runs.ts` - founders/start endpoint
-
-### Worker Loop Person
-- `artifacts/api-server/src/services/workerOrchestrator.ts` - Main orchestrator
-- `artifacts/api-server/src/prompts/workers.ts` - Worker prompts
-- `artifacts/api-server/src/routes/runs.ts` - workers/start endpoint
 
 ## Commands
 

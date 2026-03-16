@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TranscriptMessage } from "@workspace/api-client-react";
-import { AGENT_PROFILES } from "@/data/mock-data";
+import { AGENT_PROFILES } from "@/data/agents";
 import { format } from "date-fns";
 
 interface TranscriptPanelProps {

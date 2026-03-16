@@ -1,81 +1,125 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MOCK_RUN, MOCK_SEQUENCE, MOCK_ARTIFACTS } from '@/data/mock-data';
 import type { TranscriptMessage, Run, Artifact } from "@workspace/api-client-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
 export function useSimulation() {
-  const [status, setStatus] = useState<'idle' | 'running' | 'completed'>('idle');
+  const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'error'>('idle');
   const [run, setRun] = useState<Run | null>(null);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  
-  const timerRefs = useRef<NodeJS.Timeout[]>([]);
+  const activeRef = useRef(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const errorCountRef = useRef(0);
 
-  const clearTimers = useCallback(() => {
-    timerRefs.current.forEach(clearTimeout);
-    timerRefs.current = [];
+  const stopPolling = useCallback(() => {
+    activeRef.current = false;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
 
-  useEffect(() => {
-    return clearTimers;
-  }, [clearTimers]);
+  useEffect(() => stopPolling, [stopPolling]);
+
+  const pollData = useCallback((runId: string) => {
+    activeRef.current = true;
+    errorCountRef.current = 0;
+
+    const poll = async () => {
+      if (!activeRef.current) return;
+
+      try {
+        const [runRes, transcriptRes] = await Promise.all([
+          fetch(`/api/runs/${runId}`),
+          fetch(`/api/runs/${runId}/transcript`),
+        ]);
+
+        if (!activeRef.current) return;
+
+        if (runRes.ok) {
+          errorCountRef.current = 0;
+          const runData: Run = await runRes.json();
+          setRun(runData);
+
+          if (runData.status === 'completed' || runData.phase === 'founders_complete') {
+            setStatus('completed');
+            stopPolling();
+            const artRes = await fetch(`/api/runs/${runId}/artifacts`);
+            if (artRes.ok) {
+              setArtifacts(await artRes.json());
+            }
+            return;
+          } else if (runData.status === 'error') {
+            setStatus('error');
+            stopPolling();
+            return;
+          }
+        } else {
+          errorCountRef.current++;
+          if (errorCountRef.current > 10) {
+            setStatus('error');
+            stopPolling();
+            return;
+          }
+        }
+
+        if (transcriptRes.ok) {
+          const msgs: TranscriptMessage[] = await transcriptRes.json();
+          setMessages(msgs);
+        }
+      } catch {
+        errorCountRef.current++;
+        if (errorCountRef.current > 10) {
+          setStatus('error');
+          stopPolling();
+          return;
+        }
+      }
+
+      if (activeRef.current) {
+        timerRef.current = setTimeout(poll, 2000);
+      }
+    };
+
+    poll();
+  }, [stopPolling]);
 
   const startRun = useCallback(async (keywords: string) => {
     setStatus('running');
     setMessages([]);
     setArtifacts([]);
-    
-    let realRunId: string | null = null;
+    setRun(null);
+
     try {
-      const res = await fetch(`/api/runs`, {
+      const createRes = await fetch('/api/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userKeywords: keywords })
+        body: JSON.stringify({ userKeywords: keywords }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        realRunId = data.id;
-      }
-    } catch {
-      // API call failed, continue with simulation
+
+      if (!createRes.ok) throw new Error('Failed to create run');
+      const newRun: Run = await createRes.json();
+      setRun(newRun);
+
+      const startRes = await fetch(`/api/runs/${newRun.id}/founders/start`, {
+        method: 'POST',
+      });
+
+      if (!startRes.ok) throw new Error('Failed to start founder debate');
+
+      pollData(newRun.id);
+    } catch (err) {
+      console.error('Start run error:', err);
+      setStatus('error');
     }
-
-    const newRun = { ...MOCK_RUN, id: realRunId || MOCK_RUN.id, userKeywords: keywords, status: 'active', phase: 'founder' };
-    setRun(newRun);
-
-    let accumulatedTime = 0;
-    
-    MOCK_SEQUENCE.forEach((msg, index) => {
-      const delay = msg.roleType === 'system' ? 1000 : 2500 + Math.random() * 2000;
-      accumulatedTime += delay;
-      
-      const timer = setTimeout(() => {
-        setMessages(prev => [...prev, { ...msg, runId: newRun.id, createdAt: new Date().toISOString() }]);
-        
-        if (msg.phase === 'workers' && msg.roleType === 'system') {
-          setRun(r => r ? { ...r, phase: 'worker' } : r);
-        }
-        
-        if (index === MOCK_SEQUENCE.length - 1) {
-          setStatus('completed');
-          setRun(r => r ? { ...r, status: 'completed', companyName: 'NexaHealth AI', companyTagline: 'AI-Powered Healthcare Analytics for Better Patient Outcomes' } : r);
-          setArtifacts(MOCK_ARTIFACTS);
-        }
-      }, accumulatedTime);
-      
-      timerRefs.current.push(timer);
-    });
-    
-  }, [clearTimers]);
+  }, [pollData]);
 
   const resetRun = useCallback(() => {
-    clearTimers();
+    stopPolling();
     setStatus('idle');
     setRun(null);
     setMessages([]);
     setArtifacts([]);
-  }, [clearTimers]);
+  }, [stopPolling]);
 
   return {
     status,
@@ -83,6 +127,6 @@ export function useSimulation() {
     messages,
     artifacts,
     startRun,
-    resetRun
+    resetRun,
   };
 }

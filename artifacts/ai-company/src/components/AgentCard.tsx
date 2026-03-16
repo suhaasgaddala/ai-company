@@ -1,4 +1,4 @@
-import { AGENT_PROFILES } from "@/data/mock-data";
+import { AGENT_PROFILES } from "@/data/agents";
 import { GlowCard } from "./GlowCard";
 import { Cpu, TrendingUp, ShieldAlert, Coins } from "lucide-react";
 import { motion } from "framer-motion";

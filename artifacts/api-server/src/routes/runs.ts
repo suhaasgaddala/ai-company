@@ -11,6 +11,7 @@ import {
 import * as runService from "../services/runService.js";
 import * as transcriptService from "../services/transcriptService.js";
 import * as artifactService from "../services/artifactService.js";
+import { runFounderPhase } from "../services/founderOrchestrator.js";
 
 const router: IRouter = Router();
 
@@ -99,44 +100,20 @@ router.post("/runs/:runId/founders/start", async (req, res) => {
     return;
   }
 
-  const nextOrder = await transcriptService.getNextSortOrder(run.id);
+  if (run.status === "running" || run.status === "completed") {
+    res.status(409).json({ error: "Founder debate already started or completed for this run" });
+    return;
+  }
 
-  await transcriptService.addTranscriptMessage({
-    runId: run.id,
-    phase: "founders",
-    agentKey: "system",
-    roleType: "system",
-    messageType: "phase_start",
-    content: "Founder debate phase initiated. AI co-CEOs are analyzing the opportunity space...",
-    sortOrder: nextOrder,
+  runFounderPhase(run.id).catch(async (err) => {
+    console.error("Founder phase error:", err);
+    await runService.updateRun(run.id, { status: "error", phase: "founders_error" });
   });
-
-  await transcriptService.addTranscriptMessage({
-    runId: run.id,
-    phase: "founders",
-    agentKey: "tech",
-    roleType: "founder",
-    messageType: "idea",
-    content: "[PLACEHOLDER] Tech CEO would propose ideas here based on the keywords provided.",
-    sortOrder: nextOrder + 1,
-  });
-
-  await transcriptService.addTranscriptMessage({
-    runId: run.id,
-    phase: "founders",
-    agentKey: "market",
-    roleType: "founder",
-    messageType: "idea",
-    content: "[PLACEHOLDER] Market CEO would evaluate market opportunity here.",
-    sortOrder: nextOrder + 2,
-  });
-
-  await runService.updateRun(run.id, { phase: "founders", status: "running" });
 
   res.json(
     StartFoundersResponse.parse({
-      status: "placeholder",
-      message: "TODO: Founder loop not yet implemented. Placeholder messages added.",
+      status: "started",
+      message: "Founder debate started. Poll /transcript for live updates.",
       runId: run.id,
     })
   );
