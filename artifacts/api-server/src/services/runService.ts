@@ -31,22 +31,6 @@ export async function updateRun(runId: string, updates: Partial<typeof runsTable
   return run || null;
 }
 
-// TODO: Implement for founder loop
-export async function runFounderPhase(_runId: string): Promise<void> {
-  // TODO: Orchestrate the full founder debate loop
-  // 1. generateFounderIdeas(runId)
-  // 2. critiqueIdeas(runId)
-  // 3. voteOnIdeas(runId)
-  // 4. Update run with selected company
-  throw new Error("Not implemented - founder loop TODO");
-}
-
-// TODO: Implement for worker loop
 export async function runWorkerPhase(_runId: string): Promise<void> {
-  // TODO: Orchestrate the worker generation loop
-  // 1. runBuilderWorker(runId)
-  // 2. runGtmWorker(runId)
-  // 3. runFinanceWorker(runId)
-  // 4. Generate landing page preview
   throw new Error("Not implemented - worker loop TODO");
 }
