@@ -5,7 +5,7 @@ import { AgentCard } from "@/components/AgentCard";
 import { TranscriptPanel } from "@/components/TranscriptPanel";
 import { CompanySummary } from "@/components/CompanySummary";
 import { ArtifactsPanel } from "@/components/ArtifactsPanel";
-import { Hexagon, Plus, Terminal } from "lucide-react";
+import { Hexagon, Plus, Terminal, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 
 const EXAMPLE_KEYWORDS = [
@@ -16,7 +16,7 @@ const EXAMPLE_KEYWORDS = [
 ];
 
 export default function Dashboard() {
-  const { status, run, messages, artifacts, startRun, resetRun } = useSimulation();
+  const { status, phase, run, messages, artifacts, startRun, startWorkers, resetRun } = useSimulation();
   const [keywords, setKeywords] = useState("");
 
   const handleStart = () => {
@@ -27,17 +27,19 @@ export default function Dashboard() {
     }
   };
 
-  // Determine agent visual state based on latest message
   const getAgentStatus = (agentKey: string) => {
-    if (status === 'idle' || status === 'completed') return 'idle';
+    if (status === 'idle') return 'idle';
+    if (phase === 'completed') return 'idle';
     const lastMessage = messages[messages.length - 1];
     if (lastMessage && lastMessage.agentKey === agentKey) return 'speaking';
     return 'active';
   };
 
+  const showWorkersButton = phase === 'founders_complete';
+  const isWorkersRunning = phase === 'workers_running';
+
   return (
     <div className="min-h-screen pb-20">
-      {/* Top Navigation */}
       <header className="sticky top-0 z-50 bg-black/60 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -67,13 +69,10 @@ export default function Dashboard() {
 
       <main className="max-w-[1600px] mx-auto px-4 md:px-6 pt-8 space-y-8">
         
-        {/* Main Interface Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Left Column: Input & Agents */}
           <div className="lg:col-span-5 flex flex-col gap-8">
             
-            {/* Control Panel */}
             <section className="bg-card/80 backdrop-blur-md border border-white/10 rounded-xl p-6 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-purple-500 opacity-50" />
               
@@ -114,14 +113,32 @@ export default function Dashboard() {
                   className="w-full mt-4" 
                   onClick={handleStart}
                   disabled={status !== 'idle'}
-                  isLoading={status === 'running'}
+                  isLoading={phase === 'founders_running'}
                 >
-                  {status === 'running' ? 'SIMULATION IN PROGRESS...' : 'START FOUNDER DEBATE'}
+                  {phase === 'founders_running' ? 'FOUNDER DEBATE IN PROGRESS...' : 'START FOUNDER DEBATE'}
                 </CyberButton>
+
+                {showWorkersButton && (
+                  <CyberButton 
+                    className="w-full mt-2" 
+                    onClick={startWorkers}
+                    disabled={isWorkersRunning}
+                    isLoading={isWorkersRunning}
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    {isWorkersRunning ? 'WORKERS GENERATING...' : 'START WORKERS'}
+                  </CyberButton>
+                )}
+
+                {isWorkersRunning && (
+                  <div className="flex items-center gap-2 mt-2 font-mono text-xs text-primary/80">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    Worker agents are generating product spec, GTM plan, financials, and landing page...
+                  </div>
+                )}
               </div>
             </section>
 
-            {/* Agent Grid */}
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display tracking-widest text-sm text-white/60 uppercase">Active Agents</h3>
@@ -136,13 +153,11 @@ export default function Dashboard() {
             </section>
           </div>
 
-          {/* Right Column: Transcript */}
           <div className="lg:col-span-7">
             <TranscriptPanel messages={messages} />
           </div>
         </div>
 
-        {/* Results Section (Only shows when running/completed) */}
         {status !== 'idle' && (
           <motion.div 
             initial={{ opacity: 0, y: 40 }}
@@ -160,14 +175,17 @@ export default function Dashboard() {
                 <CompanySummary run={run} />
               </div>
               <div className="lg:col-span-7">
-                <ArtifactsPanel artifacts={artifacts} />
+                <ArtifactsPanel
+                  artifacts={artifacts}
+                  runId={run?.id}
+                  isGenerating={isWorkersRunning}
+                />
               </div>
             </div>
           </motion.div>
         )}
       </main>
       
-      {/* Background Image Layer */}
       <div 
         className="fixed inset-0 z-[-1] opacity-30 mix-blend-screen pointer-events-none"
         style={{

@@ -18,12 +18,6 @@ export const MODELS: Record<string, ModelDef> = {
     displayName: "Claude Sonnet 4.6",
     maxTokens: 4096,
   },
-  "google/gemini-3.1-pro-preview": {
-    id: "google/gemini-3.1-pro-preview",
-    provider: "google",
-    displayName: "Gemini 3.1 Pro",
-    maxTokens: 4096,
-  },
   "x-ai/grok-4.20-beta": {
     id: "x-ai/grok-4.20-beta",
     provider: "x-ai",

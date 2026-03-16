@@ -21,7 +21,7 @@ You type in a startup idea (e.g. "fintech, payments"). Four AI co-CEOs — each 
 | **Tech CEO** | OpenAI GPT-5.4 | Technical feasibility, architecture, engineering |
 | **Market CEO** | Anthropic Claude Sonnet 4.6 | Market opportunity, GTM, user acquisition |
 | **Skeptic CEO** | xAI Grok 4.20 Beta | Risk analysis, stress-testing, devil's advocate |
-| **Finance CEO** | Google Gemini 3.1 Pro | Revenue modeling, unit economics, funding |
+| **Finance CEO** | OpenAI GPT-5.4 | Revenue modeling, unit economics, funding |
 
 ### How It Works
 

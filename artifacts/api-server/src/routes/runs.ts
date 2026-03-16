@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import * as path from "path";
 import {
   CreateRunBody,
   GetRunResponse,
@@ -12,6 +13,7 @@ import * as runService from "../services/runService.js";
 import * as transcriptService from "../services/transcriptService.js";
 import * as artifactService from "../services/artifactService.js";
 import { runFounderPhase } from "../services/founderOrchestrator.js";
+import { runWorkerPhase } from "../services/workerOrchestrator.js";
 
 const router: IRouter = Router();
 
@@ -126,34 +128,22 @@ router.post("/runs/:runId/workers/start", async (req, res) => {
     return;
   }
 
-  const nextOrder = await transcriptService.getNextSortOrder(run.id);
+  if (run.phase !== "founders_complete") {
+    res.status(409).json({
+      error: `Cannot start workers: founder phase is "${run.phase}", expected "founders_complete"`,
+    });
+    return;
+  }
 
-  await transcriptService.addTranscriptMessage({
-    runId: run.id,
-    phase: "workers",
-    agentKey: "system",
-    roleType: "system",
-    messageType: "phase_start",
-    content: "Worker phase initiated. Specialist agents are generating deliverables...",
-    sortOrder: nextOrder,
+  runWorkerPhase(run.id).catch(async (err) => {
+    console.error("Worker phase error:", err);
+    await runService.updateRun(run.id, { status: "error", phase: "workers_error" });
   });
-
-  await transcriptService.addTranscriptMessage({
-    runId: run.id,
-    phase: "workers",
-    agentKey: "builder",
-    roleType: "worker",
-    messageType: "artifact",
-    content: "[PLACEHOLDER] Builder agent would generate product spec here.",
-    sortOrder: nextOrder + 1,
-  });
-
-  await runService.updateRun(run.id, { phase: "workers", status: "running" });
 
   res.json(
     StartWorkersResponse.parse({
-      status: "placeholder",
-      message: "TODO: Worker loop not yet implemented. Placeholder messages added.",
+      status: "started",
+      message: "Worker phase started. Specialist agents are generating deliverables.",
       runId: run.id,
     })
   );
@@ -166,13 +156,74 @@ router.get("/runs/:runId/preview", async (req, res) => {
     return;
   }
 
+  const artifacts = await artifactService.getArtifacts(req.params.runId);
+  const previewArtifact = artifacts.find((a) => a.artifactType === "preview");
+
+  if (!previewArtifact?.contentText) {
+    res.json(
+      GetPreviewResponse.parse({
+        status: "pending",
+        message: "Landing page preview not yet generated",
+        html: undefined,
+      })
+    );
+    return;
+  }
+
   res.json(
     GetPreviewResponse.parse({
-      status: "placeholder",
-      message: "Preview generation not yet implemented",
-      html: "<html><body><h1>Coming Soon</h1><p>Landing page preview will appear here.</p></body></html>",
+      status: "ready",
+      message: "Landing page preview ready",
+      html: previewArtifact.contentText,
     })
   );
+});
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+router.get("/runs/:runId/preview/page", async (req, res) => {
+  const { runId } = req.params;
+  if (!UUID_RE.test(runId)) {
+    res.status(400).send("Invalid run ID");
+    return;
+  }
+
+  const run = await runService.getRun(runId);
+  if (!run) {
+    res.status(404).send("<html><body><h1>Run not found</h1></body></html>");
+    return;
+  }
+
+  const artifacts = await artifactService.getArtifacts(runId);
+  const previewArtifact = artifacts.find((a) => a.artifactType === "preview");
+
+  if (!previewArtifact?.contentText) {
+    res.status(404).send("<html><body><h1>Preview not yet generated</h1></body></html>");
+    return;
+  }
+
+  res.type("html").send(previewArtifact.contentText);
+});
+
+router.get("/runs/:runId/preview/static/:filename", async (req, res) => {
+  const { runId, filename } = req.params;
+  if (!UUID_RE.test(runId)) {
+    res.status(400).send("Invalid run ID");
+    return;
+  }
+
+  const allowedFiles = ["index.html", "styles.css", "app.js"];
+  if (!allowedFiles.includes(filename)) {
+    res.status(404).send("File not found");
+    return;
+  }
+
+  const filePath = path.join(process.cwd(), "generated", runId, filename);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      res.status(404).send("File not found");
+    }
+  });
 });
 
 export default router;

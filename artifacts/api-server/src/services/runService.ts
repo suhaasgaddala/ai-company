@@ -30,7 +30,3 @@ export async function updateRun(runId: string, updates: Partial<typeof runsTable
     .returning();
   return run || null;
 }
-
-export async function runWorkerPhase(_runId: string): Promise<void> {
-  throw new Error("Not implemented - worker loop TODO");
-}

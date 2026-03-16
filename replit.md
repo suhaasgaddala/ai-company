@@ -13,7 +13,7 @@ AI Company is a hackathon MVP where users click "Start Company" and four AI co-C
 - **Frontend**: React + Vite + Tailwind (dark mode AI control room theme)
 - **Backend**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
-- **AI**: OpenRouter (multi-model: Claude, GPT-4o, Gemini)
+- **AI**: OpenRouter (multi-model: Claude, GPT-5.4, Grok)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
