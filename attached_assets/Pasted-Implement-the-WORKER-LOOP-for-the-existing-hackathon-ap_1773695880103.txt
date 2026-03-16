@@ -1,0 +1,417 @@
+Implement the WORKER LOOP for the existing hackathon app “AI Company”.
+
+IMPORTANT:
+Do NOT refactor the whole app.
+Do NOT touch the founder loop except where needed to read its final output.
+Do NOT add unnecessary abstractions, ORM, migrations, validation frameworks, auth, or “perfect architecture”.
+This is a hackathon MVP. Make it work, make it clean enough, and make it demoable.
+
+GOAL
+After the founder loop finishes and selects a company, the worker loop should start and generate:
+
+1. product.md
+2. gtm.md
+3. finance.md
+4. a generated landing page preview bundle inside the SAME existing repo
+
+The worker loop should be simple, deterministic enough for demoing, and visually satisfying.
+
+THE CORE FLOW
+1. Read the selected company output from the founder loop.
+2. Normalize it into one canonical company brief object.
+3. Start 3 workers:
+   - builder
+   - gtm
+   - finance_ops
+4. Generate artifacts:
+   - builder -> product.md + landing page bundle
+   - gtm -> gtm.md
+   - finance_ops -> finance.md
+5. Save artifacts to DB and save the landing page files so the Preview tab can render them.
+6. Update transcript/status as each worker starts and finishes.
+7. Make the final demo feel polished.
+
+CRITICAL IMPLEMENTATION RULES
+- Keep the worker loop brutally simple.
+- Use the current existing app structure and DB tables.
+- Use the existing OpenRouter integration and current model config.
+- Do NOT build recursive workers.
+- Do NOT build browser automation.
+- Do NOT try to make a second Replit project.
+- Do NOT make the builder “use Replit Agent”.
+- The builder must generate files inside the current repo/app and the app must preview them.
+
+ASSUMPTION
+The founder loop already creates or can create a final selected company object. If the exact shape is inconsistent, build a small normalization layer so the worker loop can consume one canonical internal shape.
+
+CREATE OR UPDATE THIS CANONICAL COMPANY BRIEF SHAPE
+Create one helper like:
+- normalizeSelectedCompany(run): SelectedCompanyBrief
+
+Canonical shape should include at minimum:
+{
+  companyName: string,
+  tagline: string,
+  customer: string,
+  problem: string,
+  solution: string,
+  whyNow: string,
+  businessModel: string,
+  pricing: string,
+  coreFeatures: string[],
+  goToMarketWedge: string,
+  risks: string[],
+  brandTone: string,
+  assignedRoles: {
+    ceo?: string,
+    cto?: string,
+    cmo?: string,
+    cfo?: string,
+    coo?: string
+  }
+}
+
+If founder output is missing any of these fields, derive them safely and fill reasonable defaults.
+This brief must become the single source of truth for all workers so the outputs stay coherent.
+
+WORKER LOOP REQUIREMENTS
+Implement the real worker loop in the worker orchestrator/service.
+
+Main entrypoint:
+- runWorkerPhase(runId)
+
+Suggested internal functions:
+- loadAndNormalizeCompanyBrief(runId)
+- runBuilderWorker(runId, brief)
+- runGtmWorker(runId, brief)
+- runFinanceWorker(runId, brief)
+- persistWorkerArtifacts(runId, artifacts)
+- updateWorkerStatuses(runId, status)
+
+The worker loop should:
+- verify founder phase completed enough to proceed
+- write transcript messages
+- run the 3 workers
+- save artifacts
+- return a structured response the UI can show
+
+Worker execution strategy:
+- GTM + Finance can run in parallel if easy
+- Builder can run either in parallel or sequentially
+- Simplicity is more important than parallelism
+
+MODEL MAPPING
+Use the current model config already set in the project.
+
+For worker agents, use:
+- builder -> default to the strongest coding/tech model configured for builder; if no builder-specific config exists yet, map builder to the tech model
+- gtm -> market model
+- finance_ops -> finance model
+
+Do NOT add a bunch of model logic.
+Just read from config cleanly and keep it simple.
+
+ARTIFACT GENERATION
+The worker loop must create these 4 outputs.
+
+1. PRODUCT ARTIFACT
+Artifact type: product_md
+Filename/title: product.md
+
+This should be a thorough but focused product spec.
+Sections should include:
+- Company name + tagline
+- Customer / ICP
+- Problem
+- Solution
+- Why now
+- Core product thesis
+- MVP scope
+- Feature list
+- User flow
+- Differentiation / moat
+- Technical direction
+- Near-term roadmap
+- Risks / constraints
+
+Keep it coherent and investor-readable.
+Do not make it absurdly long.
+Target something like 700–1200 words.
+
+2. GTM ARTIFACT
+Artifact type: gtm_md
+Filename/title: gtm.md
+
+This should be a strong go-to-market memo.
+Sections should include:
+- ICP
+- Wedge
+- Core messaging
+- Acquisition channels
+- Launch sequence
+- First 100 users/customers strategy
+- Pricing / packaging
+- Metrics to track
+- Risks / objections
+- Near-term GTM experiments
+
+Target something like 700–1200 words.
+
+3. FINANCE ARTIFACT
+Artifact type: finance_md
+Filename/title: finance.md
+
+This should be a finance / investor memo.
+Sections should include:
+- Market framing
+- Business model
+- Pricing logic
+- Revenue assumptions
+- Basic unit economics assumptions
+- Rough CAC logic
+- Margin logic
+- Risks
+- Competitive framing
+- Investor narrative / why this could work
+
+Target something like 700–1200 words.
+
+4. LANDING PAGE PREVIEW BUNDLE
+Artifact types:
+- landing_html
+- landing_css
+- landing_js
+- preview_url (or equivalent metadata)
+
+This is the most important implementation detail.
+
+DO NOT create a second app.
+DO NOT try to access the Replit prompt box.
+Generate a simple landing page bundle inside the same repo/app and preview it in the existing Preview tab.
+
+BEST IMPLEMENTATION
+Use a generated folder per run or a stable generated preview folder, whichever is easier and already fits the project.
+
+Examples:
+- generated/<runId>/index.html
+- generated/<runId>/styles.css
+- generated/<runId>/app.js
+
+or a single current-preview folder if simpler.
+
+Then serve these generated files from the backend and point the Preview tab / iframe to them.
+
+PREVIEW REQUIREMENTS
+The generated landing page should:
+- look polished
+- match the selected company
+- have a strong hero section
+- value prop
+- three feature cards
+- proof / trust section placeholder
+- pricing section
+- CTA
+- at least one tiny interactive element
+Examples of tiny interactive element:
+- email waitlist form
+- pricing toggle
+- feature tabs
+- demo modal placeholder
+
+IMPORTANT:
+Reliability > framework purity.
+For the MVP, the generated landing page should be standalone and easy to preview.
+Prefer static HTML/CSS/JS over a generated React app if that is simpler and more reliable.
+
+If Tailwind is already easy to use for generated preview, use it.
+If not, use clean standalone CSS.
+Do NOT overcomplicate this part.
+It just needs to look great and render every time.
+
+BUILDER OUTPUT CONTRACT
+Make the builder generate structured output first, not just raw freeform text.
+
+Suggested builder output structure:
+{
+  productMd: "...",
+  landingPage: {
+    indexHtml: "...",
+    stylesCss: "...",
+    appJs: "..."
+  }
+}
+
+Then save those files/content.
+
+GTM output:
+{
+  gtmMd: "..."
+}
+
+Finance output:
+{
+  financeMd: "..."
+}
+
+If models sometimes return slightly messy output, add minimal parsing/cleanup logic.
+Do NOT build a giant parser.
+
+PROMPTING
+Use the existing prompt file structure, but now implement the real worker prompts.
+
+Builder prompt should explicitly say:
+- You are the builder at an AI-native startup
+- Use the company brief as the source of truth
+- Create a polished landing page and a product spec
+- Keep the landing page visually strong, modern, and concise
+- Output only the required structured fields
+
+GTM prompt should explicitly say:
+- You are the GTM lead
+- Produce a credible launch memo from the company brief
+- Be specific, not generic
+- Avoid fluff
+
+Finance prompt should explicitly say:
+- You are the finance/ops lead
+- Produce a thoughtful first-pass investor memo
+- Use grounded assumptions
+- Be clear where assumptions are directional
+
+TRANSCRIPT / UX UPDATES
+As the worker loop runs, append transcript messages so the UI feels alive.
+
+Add system + worker messages like:
+- “Builder worker started”
+- “GTM worker started”
+- “Finance worker started”
+- “Builder generated product spec”
+- “Landing page preview ready”
+- “GTM memo ready”
+- “Finance memo ready”
+- “Worker phase complete”
+
+Also optionally add 1–2 short natural-language worker messages per worker so it feels like they are actually doing something.
+
+STATUS / PHASE UPDATES
+Make sure the run status/phase updates as the worker loop progresses.
+Examples:
+- phase: worker_loop
+- status: executing
+then
+- status: complete
+
+ARTIFACT PERSISTENCE
+Use the existing artifacts table and save:
+- product.md content
+- gtm.md content
+- finance.md content
+- landing page file metadata / preview metadata
+
+If the current artifacts table supports content_text, use that for markdown.
+For generated landing files, save either:
+- storage_path values
+or
+- actual content_text where appropriate
+Use the existing schema rather than inventing a new system unless absolutely necessary.
+
+BACKEND ROUTES
+Make the existing worker route real:
+POST /api/runs/:runId/workers/start
+
+This route should:
+- validate run exists
+- load selected company
+- run worker phase
+- save artifacts
+- return structured result
+
+Also make sure:
+GET /api/runs/:runId/artifacts
+returns the real generated artifacts cleanly
+
+And make sure preview route works.
+If a preview route already exists, implement it for real.
+If not, add a simple one that serves the generated landing bundle.
+
+PREVIEW TAB / FRONTEND
+Update the existing Preview tab / Preview pane so that after worker generation it actually shows the generated landing page.
+
+Behavior:
+- before generation: show placeholder
+- during generation: show loading state
+- after generation: load the real preview
+
+Also update Product / GTM / Finance tabs so they render the actual generated markdown content from the artifacts endpoint.
+
+HARD-CODED DATA
+Remove remaining hard-coded company/demo artifact junk from the worker side.
+The preview and artifacts must come from the selected run, not from old seeded examples.
+
+FALLBACK / MVP RELIABILITY
+Keep this simple:
+- if one worker fails, surface an error cleanly
+- but do not spend a lot of time on deep retry logic
+- if preview bundle generation fails, still save product.md and show a clear error state in the Preview tab
+
+Do not build an elaborate resilience framework.
+Just avoid crashing the whole app.
+
+FILES / AREAS TO TOUCH
+Use the existing project structure, but likely this work belongs in:
+- worker orchestrator / worker service
+- prompts/workers
+- artifact service
+- preview service / preview route
+- artifacts endpoint
+- preview tab frontend component
+- artifact tabs frontend component
+
+KEEP THE APP COHERENT
+This matters:
+All worker outputs must use the same company name, same customer, same problem, same pricing logic, same tone.
+The easiest way to enforce this is:
+- generate one canonical company brief first
+- pass that same brief into all worker prompts
+
+IMPORTANT
+Do NOT spend time on:
+- Miro changes
+- GitHub cleanup
+- extra tools
+- extra workers
+- recursive org charts
+- browser automation
+- big refactors
+
+Just make the worker loop fully functional and demo-ready.
+
+ACCEPTANCE CRITERIA
+Do not stop until all of these are true:
+
+1. POST /api/runs/:runId/workers/start performs a real worker phase.
+2. The worker phase reads the selected company from the founder output.
+3. product.md is generated and saved.
+4. gtm.md is generated and saved.
+5. finance.md is generated and saved.
+6. A generated landing page bundle is created in the same repo/app.
+7. The Preview tab shows that landing page.
+8. Transcript updates during worker execution.
+9. The artifact tabs load real data for the selected run.
+10. The output feels polished and coherent enough for a hackathon demo.
+
+IMPLEMENTATION STYLE
+- Keep code simple.
+- Keep functions readable.
+- Use the existing patterns in the codebase.
+- Avoid giant abstractions.
+- Add clear TODOs only where absolutely necessary.
+- Favor “works now” over “perfect architecture”.
+
+FINAL STEP
+When finished, give me:
+1. a summary of exactly what was implemented
+2. the specific files changed
+3. any manual steps I still need to do
+4. whether the preview is fully live
+5. any remaining rough edges before demo
